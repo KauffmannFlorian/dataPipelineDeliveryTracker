@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Data pipeline delivery tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F3F5F8; --surface:#FFFFFF; --surface-2:#EBEEF3; --ink:#18212F; --ink-2:#4A5568; --line:#D5DAE2;
+  --p1:#0E7A7E; --p2:#4B4FC4; --p3:#B26B12;
+  --ok:#2F855A; --warn:#C98A12; --ko:#C0392B; --ok-bg:#E3F3EA; --warn-bg:#FBF0D9; --ko-bg:#F8E1DE;
+  --today:#C0392B;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#111722; --surface:#1A2230; --surface-2:#232D3D; --ink:#E8ECF2; --ink-2:#A4AFBF; --line:#334055;
+    --p1:#2BB3B8; --p2:#8B8EF0; --p3:#E0A04A;
+    --ok:#5CC98D; --warn:#E8B64A; --ko:#EF7A6C; --ok-bg:#1D3A2C; --warn-bg:#3D3219; --ko-bg:#42211E; --today:#EF7A6C;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#111722; --surface:#1A2230; --surface-2:#232D3D; --ink:#E8ECF2; --ink-2:#A4AFBF; --line:#334055;
+  --p1:#2BB3B8; --p2:#8B8EF0; --p3:#E0A04A;
+  --ok:#5CC98D; --warn:#E8B64A; --ko:#EF7A6C; --ok-bg:#1D3A2C; --warn-bg:#3D3219; --ko-bg:#42211E; --today:#EF7A6C;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Instrument Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:15px;line-height:1.5;font-variant-numeric:tabular-nums}
+.wrap{max-width:1240px;margin:0 auto;padding:28px 20px 60px}
+header.top{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between;margin-bottom:20px}
+h1{font-size:1.75rem;line-height:1.15;margin:0;font-weight:700;letter-spacing:-.01em}
+.sub{color:var(--ink-2);margin:6px 0 0;max-width:70ch}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.85rem;color:var(--ink-2)}
+.dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+nav.tabs{display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--line);margin-bottom:22px;position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);z-index:5}
+nav.tabs button{font:inherit;font-weight:500;background:none;border:0;color:var(--ink-2);padding:12px 14px;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--p2);outline-offset:2px}
+section.panel{display:none} section.panel.on{display:block}
+.intro{color:var(--ink-2);max-width:78ch;margin:0 0 18px}
+.intro b{color:var(--ink)}
+h2{font-size:1.2rem;margin:0 0 6px}
+h3{font-size:1rem;margin:0 0 8px}
+
+/* Portfolio */
+.projects{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-bottom:26px}
+.proj{background:var(--surface);border:1px solid var(--line);border-top:5px solid var(--c);border-radius:6px;padding:16px 18px}
+.proj .head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.proj .client{color:var(--ink-2);font-size:.85rem}
+.status{font-size:.8rem;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap}
+.s-ok{background:var(--ok-bg);color:var(--ok)} .s-warn{background:var(--warn-bg);color:var(--warn)} .s-ko{background:var(--ko-bg);color:var(--ko)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:.88rem;margin:12px 0}
+.kv dt{color:var(--ink-2)} .kv dd{margin:0}
+.bar{height:8px;background:var(--surface-2);border-radius:4px;overflow:hidden;margin:4px 0 2px}
+.bar i{display:block;height:100%;background:var(--c)}
+.proj .alert{font-size:.88rem;border-left:3px solid var(--ko);padding:6px 10px;background:var(--ko-bg);border-radius:0 4px 4px 0;margin-top:10px}
+.proj .alert.w{border-color:var(--warn);background:var(--warn-bg)}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px 18px}
+.list{list-style:none;padding:0;margin:0}
+.list li{display:flex;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:.9rem;align-items:baseline}
+.list li:first-child{border-top:0}
+.list .when{min-width:74px;color:var(--ink-2);font-size:.82rem}
+.tag{font-size:.75rem;font-weight:600;padding:1px 7px;border-radius:4px;color:#fff;white-space:nowrap}
+.t1{background:var(--p1)} .t2{background:var(--p2)} .t3{background:var(--p3)}
+
+/* Gantt */
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+.gantt{display:grid;min-width:980px;position:relative}
+.g-h{border-left:1px solid var(--line);font-size:.78rem;color:var(--ink-2);text-align:center;padding:8px 0}
+.g-h.cur{color:var(--today);font-weight:700}
+.g-label{padding:7px 12px;font-size:.86rem;border-top:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.g-label.grp{font-weight:700;background:var(--surface-2)}
+.g-row{border-top:1px solid var(--line);position:relative;height:34px}
+.g-row.grp{background:var(--surface-2)}
+.g-bar{position:absolute;top:8px;height:18px;border-radius:4px;background:var(--c);opacity:.9;font-size:.72rem;color:#fff;padding:0 6px;line-height:18px;white-space:nowrap;overflow:hidden}
+.g-bar.done{opacity:.45}
+.g-bar.late{background:repeating-linear-gradient(45deg,var(--c),var(--c) 6px,var(--ko) 6px,var(--ko) 9px)}
+.g-ms{position:absolute;top:9px;width:16px;height:16px;transform:rotate(45deg);background:var(--ink);border:2px solid var(--surface)}
+.g-dep{position:absolute;top:9px;width:16px;height:16px;border-radius:50%;border:3px solid var(--warn);background:var(--surface)}
+.g-dep.ko{border-color:var(--ko)}
+.g-today{position:absolute;top:0;bottom:0;width:2px;background:var(--today);z-index:2;pointer-events:none}
+.g-legend{display:flex;gap:18px;flex-wrap:wrap;font-size:.82rem;color:var(--ink-2);margin-top:10px;align-items:center}
+.g-legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{display:inline-block;width:14px;height:12px;border-radius:2px}
+
+/* Kanban */
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
+.chip{font:inherit;font-size:.85rem;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:5px 12px;border-radius:20px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.kanban{display:grid;grid-template-columns:repeat(6,minmax(190px,1fr));gap:10px;overflow-x:auto;padding-bottom:6px}
+.col{background:var(--surface-2);border-radius:6px;padding:10px;min-height:280px}
+.col h3{font-size:.88rem;display:flex;justify-content:space-between}
+.col h3 small{color:var(--ink-2);font-weight:500}
+.col.block{background:var(--ko-bg)}
+.col.over{outline:2px dashed var(--p2)}
+.card{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--c);border-radius:4px;padding:8px 10px;margin-bottom:8px;font-size:.85rem;cursor:grab}
+.card .meta{display:flex;justify-content:space-between;color:var(--ink-2);font-size:.76rem;margin-top:6px;gap:6px}
+.card.dragging{opacity:.4}
+.wip{color:var(--ko);font-weight:700}
+.reset{font:inherit;font-size:.82rem;background:none;border:0;color:var(--ink-2);text-decoration:underline;cursor:pointer;margin-left:auto}
+
+/* Tables */
+table{border-collapse:collapse;width:100%;font-size:.88rem;background:var(--surface)}
+th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-weight:600;background:var(--surface-2);white-space:nowrap}
+td.num,th.num{text-align:right}
+td input{width:62px;font:inherit;font-size:.85rem;padding:3px 5px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink);text-align:right}
+.score{font-weight:700}
+.rank{color:var(--ink-2)}
+.crit{font-weight:600;font-size:.78rem;padding:2px 8px;border-radius:4px;white-space:nowrap}
+.typeR{color:var(--ko)} .typeA{color:var(--p2)} .typeI{color:var(--warn)} .typeD{color:var(--p1)}
+.late-txt{color:var(--ko);font-weight:600}
+
+/* DORA */
+.dcmp th.proj{min-width:190px}
+.dcmp td{vertical-align:top}
+.dcmp .mname{font-weight:600}
+.dcmp .msub{display:block;font-weight:400;font-size:.78rem;color:var(--ink-2)}
+.dcmp .val{font-size:1.25rem;font-weight:700;line-height:1.2}
+.dcmp .lvl{margin-left:6px;vertical-align:3px}
+.dcmp .dl{display:block;font-size:.78rem;margin-top:2px}
+.d-good{color:var(--ok)} .d-bad{color:var(--ko)} .d-flat{color:var(--ink-2)}
+.dcmp tr.samp td{font-size:.8rem;color:var(--ink-2);background:var(--surface-2)}
+.dfoot{font-size:.85rem;color:var(--ink-2);margin:10px 0 0;max-width:80ch}
+.dchart svg{width:100%;height:auto;display:block}
+.dleg{display:flex;gap:14px;flex-wrap:wrap;font-size:.8rem;color:var(--ink-2);margin-top:6px}
+.dleg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.note{font-size:.88rem;color:var(--ink-2);border-left:3px solid var(--p2);padding:8px 12px;background:var(--surface);max-width:80ch}
+table.bands th,table.bands td{padding:6px 8px;font-size:.8rem}
+.defs{margin:0;padding-left:18px;font-size:.88rem}
+.defs li{margin:5px 0}
+
+/* Incidents */
+.inc-kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:18px}
+.inc-kpi .box{padding:12px 16px}
+.inc-kpi .v{font-size:1.5rem;font-weight:700;line-height:1.2}
+.inc-kpi .l{font-size:.82rem;color:var(--ink-2)}
+.sev1{background:var(--ko);color:#fff} .sev2{background:var(--ko-bg);color:var(--ko)}
+.sev3{background:var(--warn-bg);color:var(--warn)} .sev4{background:var(--surface-2);color:var(--ink-2)}
+table.sev{font-size:.82rem} table.sev td,table.sev th{padding:7px 8px}
+.flow{list-style:none;padding:0;margin:0;counter-reset:f}
+.flow li{counter-increment:f;position:relative;padding:0 0 12px 34px;font-size:.88rem}
+.flow li::before{content:counter(f);position:absolute;left:0;top:0;width:22px;height:22px;border-radius:50%;background:var(--ink);color:var(--bg);font-size:.75rem;font-weight:700;display:grid;place-items:center}
+.flow li:not(:last-child)::after{content:"";position:absolute;left:10px;top:24px;bottom:2px;width:2px;background:var(--line)}
+.flow b{display:block} .flow span{color:var(--ink-2)}
+#incT tr.row{cursor:pointer} #incT tr.row:hover td{background:var(--surface-2)}
+#incT tr.sel td{background:var(--surface-2)}
+#incT tr.sel td:first-child{box-shadow:inset 3px 0 0 var(--p2)}
+.sla-ok{color:var(--ok);font-weight:600} .sla-ko{color:var(--ko);font-weight:600}
+.tl{list-style:none;padding:0;margin:8px 0 0}
+.tl li{display:grid;grid-template-columns:90px 130px 1fr;gap:10px;padding:7px 0;border-top:1px solid var(--line);font-size:.86rem}
+.tl .who{color:var(--ink-2)}
+@media (max-width:640px){.tl li{grid-template-columns:1fr}}
+
+/* AI copilot */
+.ai-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:16px;margin-bottom:18px}
+@media (max-width:860px){.ai-grid{grid-template-columns:1fr}}
+.ai-label{font-size:.78rem;font-weight:600;color:var(--ink-2);text-transform:uppercase;letter-spacing:.04em;margin:0 0 6px}
+.usecases{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.uc{font:inherit;text-align:left;background:var(--surface-2);color:var(--ink);border:1px solid transparent;border-radius:6px;padding:9px 12px;cursor:pointer}
+.uc[aria-pressed="true"]{background:var(--surface);border-color:var(--ink);box-shadow:inset 3px 0 0 var(--p2)}
+.uc small{display:block;color:var(--ink-2);font-size:.8rem}
+.ucd{font-size:.88rem;border-top:1px solid var(--line);padding-top:10px;margin-top:4px}
+.ucd p{margin:0 0 6px}
+.ucd b{color:var(--ink)}
+.promptbox{display:flex;flex-direction:column;gap:10px}
+.promptbox textarea{width:100%;min-height:360px;resize:vertical;font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:12px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+.pbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.btn{font:inherit;font-weight:600;font-size:.88rem;background:var(--ink);color:var(--bg);border:0;border-radius:6px;padding:8px 16px;cursor:pointer}
+.msg{font-size:.85rem;color:var(--ok);font-weight:600}
+.radar .row{display:grid;grid-template-columns:200px 1fr;gap:6px 16px;padding:12px 0;border-top:1px solid var(--line);align-items:start}
+.radar .row:first-child{border-top:0}
+.radar .rbar{height:10px;border-radius:5px;background:var(--surface-2);overflow:hidden;margin:6px 0}
+.radar .rbar i{display:block;height:100%}
+.radar ul{margin:4px 0 0;padding-left:18px;font-size:.86rem;color:var(--ink-2)}
+@media (max-width:640px){.radar .row{grid-template-columns:1fr}}
+.guard{margin:0;padding-left:20px;font-size:.9rem}
+.guard li{margin:4px 0}
+
+
+/* Data flow map */
+.fl-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:20px 0 8px}
+.fl-sum{font-size:.86rem;color:var(--ink-2)}
+.flowrow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:26px;margin:0 0 6px}
+.stage{position:relative;font:inherit;text-align:left;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-top:5px solid var(--sc);border-radius:6px;padding:12px 14px;cursor:pointer;min-height:112px}
+.stage:not(:last-child)::after{content:"";position:absolute;right:-19px;top:50%;width:11px;height:11px;border-top:3px solid var(--ink-2);border-right:3px solid var(--ink-2);transform:translateY(-50%) rotate(45deg)}
+.stage[aria-pressed="true"]{box-shadow:0 0 0 2px var(--ink)}
+.stage b{display:block;font-size:.95rem}
+.stage .sd{display:block;font-size:.8rem;color:var(--ink-2);margin:2px 0 8px}
+.s-idle{background:var(--surface-2);color:var(--ink-2)}
+@media (max-width:860px){.flowrow{grid-template-columns:1fr;gap:24px}.stage:not(:last-child)::after{right:auto;left:50%;top:auto;bottom:-19px;transform:translateX(-50%) rotate(135deg)}}
+
+/* Stakeholder meeting */
+.cr{max-width:820px}
+.cr ol{padding-left:20px;margin:6px 0 14px} .cr li{margin:4px 0}
+.cr .box{margin-bottom:14px}
+footer{margin-top:40px;font-size:.8rem;color:var(--ink-2)}
+@media (max-width:640px){h1{font-size:1.4rem}.wrap{padding:18px 14px 40px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top">
+  <div>
+    <h1>Data pipeline delivery tracker</h1>
+    <p class="sub">Example tracking tools for a project manager working alongside a tech lead on three parallel data pipeline projects. Fictional data, week 39 of 2026.</p>
+  </div>
+  <div class="legend">
+    <span><i class="dot" style="background:var(--p1)"></i>Customer 360</span>
+    <span><i class="dot" style="background:var(--p2)"></i>Finance data mart</span>
+    <span><i class="dot" style="background:var(--p3)"></i>Order event stream</span>
+  </div>
+</header>
+
+<nav class="tabs" role="tablist">
+  <button role="tab" aria-selected="true" data-t="port">Portfolio</button>
+  <button role="tab" aria-selected="false" data-t="gantt">Schedule (Gantt)</button>
+  <button role="tab" aria-selected="false" data-t="flow">Data flow map</button>
+  <button role="tab" aria-selected="false" data-t="kanban">Kanban</button>
+  <button role="tab" aria-selected="false" data-t="rice">RICE backlog</button>
+  <button role="tab" aria-selected="false" data-t="raid">RAID log</button>
+  <button role="tab" aria-selected="false" data-t="deps">Source dependencies</button>
+  <button role="tab" aria-selected="false" data-t="incidents">Incidents</button>
+  <button role="tab" aria-selected="false" data-t="health">Pipeline health</button>
+  <button role="tab" aria-selected="false" data-t="point">Stakeholder meeting</button>
+  <button role="tab" aria-selected="false" data-t="ai">AI copilot</button>
+</nav>
+
+<!-- PORTFOLIO -->
+<section class="panel on" id="port">
+  <p class="intro">The weekly view shared with management: <b>a status per pipeline project</b>, the variance against the baseline plan, and the alerts that need a decision or a chase of a data owner.</p>
+  <div class="projects" id="projCards"></div>
+  <div class="two">
+    <div class="box">
+      <h3>Milestones in the next four weeks</h3>
+      <ul class="list" id="nextMs"></ul>
+    </div>
+    <div class="box">
+      <h3>Scheduled stakeholder meetings</h3>
+      <ul class="list" id="nextMeet"></ul>
+    </div>
+  </div>
+</section>
+
+<!-- GANTT -->
+<section class="panel" id="gantt">
+  <p class="intro">Consolidated plan across the three pipeline projects. Circles show <b>what data owners must supply</b> (access, extracts, definitions, sign-offs), which is where most delays start. The red line marks the current week.</p>
+  <div class="scroll"><div class="gantt" id="ganttGrid"></div></div>
+  <div class="g-legend">
+    <span><i class="sw" style="background:var(--p2)"></i>Planned task</span>
+    <span><i class="sw" style="background:var(--p2);opacity:.45"></i>Completed</span>
+    <span><i class="sw" style="background:repeating-linear-gradient(45deg,var(--p2),var(--p2) 4px,var(--ko) 4px,var(--ko) 6px)"></i>Slippage</span>
+    <span><i class="g-ms" style="position:static;transform:rotate(45deg);width:11px;height:11px"></i>Milestone / go-live</span>
+    <span><i class="g-dep" style="position:static;width:12px;height:12px"></i>Data owner deliverable expected</span>
+    <span><i class="g-dep ko" style="position:static;width:12px;height:12px"></i>Data owner deliverable late</span>
+  </div>
+</section>
+
+<!-- DATA FLOW MAP -->
+<section class="panel" id="flow">
+  <p class="intro">Each pipeline as a chain of stages, from source to serving. A stage is only as ready as what feeds it: <b>when a source is blocked, everything downstream cannot be completed or tested</b>. Select a stage to see its owner and what it is waiting on.</p>
+  <div id="flowMap"></div>
+  <div class="box" id="flowDetail" style="margin-top:18px"></div>
+</section>
+
+<!-- KANBAN -->
+<section class="panel" id="kanban">
+  <p class="intro">Current iteration board, maintained with the tech lead. A dedicated <b>“Blocked by data owner”</b> column makes waiting items visible so they can be chased. Drag and drop cards between columns.</p>
+  <div class="filters" id="kFilters"></div>
+  <div class="kanban" id="kBoard"></div>
+</section>
+
+<!-- RICE -->
+<section class="panel" id="rice">
+  <p class="intro">Aid for backlog prioritisation with data consumers: <b>Reach</b> (consumers or reports affected per quarter), <b>Impact</b> (0.25 to 3), <b>Confidence</b> (%), <b>Effort</b> (person-weeks, estimated by the data engineering team). Score = R × I × C ÷ E. Values are editable.</p>
+  <div class="filters" id="rFilters"></div>
+  <div class="scroll"><table id="riceT"></table></div>
+</section>
+
+<!-- RAID -->
+<section class="panel" id="raid">
+  <p class="intro">Log of <b>Risks, Actions, Issues and Dependencies</b>. Reviewed weekly; every line has an owner and a due date.</p>
+  <div class="filters" id="raidFilters"></div>
+  <div class="scroll"><table id="raidT"></table></div>
+</section>
+
+<!-- SOURCE DEPENDENCIES -->
+<section class="panel" id="deps">
+  <p class="intro">What the data engineering team needs from data owners (access, extracts, schemas, definitions, agreements), <b>with the date it is needed</b> and the impact if it arrives late. It is the basis for chasing and for the stakeholder meeting agenda.</p>
+  <div class="scroll"><table id="attT"></table></div>
+</section>
+
+<!-- INCIDENTS -->
+<section class="panel" id="incidents">
+  <p class="intro">The tech lead and the team own diagnosis, fixes and backfills. The project manager <b>qualifies the impact with data consumers, runs communication, tracks commitment deadlines</b> and makes sure post-incident actions get done.</p>
+  <div class="inc-kpi" id="incKpi"></div>
+
+  <div class="two" style="margin-bottom:18px">
+    <div class="box">
+      <h3>Severity levels and commitments</h3>
+      <div class="scroll" style="border:0"><table class="sev">
+        <tr><th>Level</th><th>Example</th><th>Response</th><th>Restoration</th><th>Consumer updates</th></tr>
+        <tr><td><span class="crit sev1">P1 blocking</span></td><td>Critical dataset missing or wrong in production</td><td>30 min</td><td>4 h</td><td>Hourly</td></tr>
+        <tr><td><span class="crit sev2">P2 major</span></td><td>Key dataset late or partly wrong, workaround available</td><td>2 h</td><td>1 business day</td><td>Twice a day</td></tr>
+        <tr><td><span class="crit sev3">P3 minor</span></td><td>Minor data defect, no blocker</td><td>1 business day</td><td>Next release</td><td>Weekly meeting</td></tr>
+        <tr><td><span class="crit sev4">P4 cosmetic</span></td><td>Labels, formatting</td><td>Backlog</td><td>By priority</td><td>Weekly meeting</td></tr>
+      </table></div>
+      <p style="font-size:.8rem;color:var(--ink-2);margin:8px 0 0">Indicative targets, to align with each data owner's agreed SLAs.</p>
+    </div>
+    <div class="box">
+      <h3>Incident flow and who does what</h3>
+      <ol class="flow">
+        <li><b>Detection</b><span>Monitoring alert (failed run, freshness or quality check) or a data consumer report. Ticket created immediately.</span></li>
+        <li><b>Triage</b><span>Severity set with the tech lead; business impact confirmed with the affected consumers.</span></li>
+        <li><b>Communication</b><span>First message to consumers within the response target, then at the agreed frequency.</span></li>
+        <li><b>Resolution</b><span>Fix, backfill or workaround by the engineering team. The project manager tracks the deadline and prepares the closure message.</span></li>
+        <li><b>Post-incident review</b><span>For P1 and P2: causes, preventive actions, owners and due dates, logged in the RAID log.</span></li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="filters" id="incFilters"></div>
+  <div class="scroll"><table id="incT"></table></div>
+  <div class="box" id="incDetail" style="margin-top:16px"></div>
+</section>
+
+<!-- PIPELINE HEALTH -->
+<section class="panel" id="health">
+  <p class="intro">How the data behaves in production, computed from a <b>run log</b>, <b>per pipeline</b> (averaging different pipelines hides more than it shows), over the last four weeks and compared with the four weeks before. A run counts as fresh when it finishes before the agreed deadline.</p>
+  <div class="scroll"><table class="dcmp" id="hCmp"></table></div>
+  <p class="dfoot" id="hFoot"></p>
+
+  <h3 style="margin-top:24px">Pipeline detail</h3>
+  <div class="filters" id="hFilters"></div>
+  <div class="two">
+    <div class="box dchart">
+      <h3>Runs per week by outcome</h3>
+      <div id="hBars"></div>
+      <div class="dleg" id="hLeg"></div>
+    </div>
+    <div class="box dchart">
+      <h3>Data quality test pass rate by week (%)</h3>
+      <div id="hQual"></div>
+      <div class="dleg"><span>Dashed line: 99% target</span></div>
+    </div>
+  </div>
+  <div class="box" style="margin-top:16px">
+    <h3>Run log (latest 12)</h3>
+    <div class="scroll" style="border:0"><table id="hLog"></table></div>
+  </div>
+
+  <div class="two" style="margin-top:16px">
+    <div class="box">
+      <h3>How each metric is computed</h3>
+      <ul class="defs">
+        <li><b>Freshness SLA hit rate:</b> runs that finished before the agreed deadline, divided by all scheduled runs. A failed run counts as a miss.</li>
+        <li><b>Run success rate:</b> runs that did not fail, divided by all runs. A late but successful run counts as a success.</li>
+        <li><b>Data quality test pass rate:</b> automated tests passed, divided by tests run, over completed runs.</li>
+        <li><b>Median recovery time:</b> from a failed run to the next successful run. The median is used because a few long outages would distort a mean.</li>
+        <li><b>Median run duration:</b> start to finish. Useful as a signal of cost and headroom before the deadline.</li>
+      </ul>
+      <p style="font-size:.8rem;color:var(--ink-2);margin:10px 0 0">Data sources in practice: run history from the orchestrator, test results from the transformation and quality tooling, deadlines from the agreed SLA. The tech lead owns this tooling.</p>
+    </div>
+    <div class="box">
+      <h3>Targets used on this page</h3>
+      <div class="scroll" style="border:0"><table class="bands">
+        <tr><th>Metric</th><th>On target</th><th>Watch</th><th>Off target</th></tr>
+        <tr><td>Freshness SLA hit rate</td><td>≥ 98%</td><td>≥ 90%</td><td>&lt; 90%</td></tr>
+        <tr><td>Run success rate</td><td>≥ 98%</td><td>≥ 95%</td><td>&lt; 95%</td></tr>
+        <tr><td>Quality test pass rate</td><td>≥ 99%</td><td>≥ 97%</td><td>&lt; 97%</td></tr>
+        <tr><td>Median recovery time</td><td>&lt; 4 h</td><td>&lt; 1 day</td><td>≥ 1 day</td></tr>
+      </table></div>
+      <p style="font-size:.8rem;color:var(--ink-2);margin:10px 0 0">Illustrative targets, not an industry benchmark. Agree real SLAs with each data owner for each dataset: the right freshness depends on how the data is used. The DORA metrics still apply to the pipeline code itself; this tab covers how the data behaves once deployed.</p>
+    </div>
+  </div>
+
+  <p class="note" style="margin-top:16px">These metrics come from tooling chosen by the tech lead. The project manager tracks them and links them to the commitments made to data consumers, without deciding the engineering practices that move them. Use them to spot friction, not to rank people.</p>
+</section>
+
+<!-- STAKEHOLDER MEETING -->
+<section class="panel" id="point">
+  <div class="cr">
+    <p class="intro">Template prepared before each stakeholder meeting, with minutes sent within 24 hours. Filled-in example for the order event stream.</p>
+    <div class="box">
+      <h3>Agenda, sent the day before</h3>
+      <ol>
+        <li>Progress since the last meeting and a short demo</li>
+        <li>Schedule: variance against plan and next milestone</li>
+        <li>Data health: freshness, failed runs and open quality issues</li>
+        <li>Items expected from your side, with the dates they are needed</li>
+        <li>Decisions to take together</li>
+        <li>Risks and points of attention</li>
+      </ol>
+    </div>
+    <div class="box">
+      <h3>Minutes: Operations, Thursday 24 September</h3>
+      <dl class="kv">
+        <dt>Attendees</dt><dd>Data owner (Operations), source database team lead, tech lead, project manager</dd>
+        <dt>Status</dt><dd><span class="status s-ko">Red</span> one week behind on the change data capture connector</dd>
+        <dt>Cause</dt><dd>Read-replica access requested on 15 Sep, still not provided</dd>
+      </dl>
+      <h3>Decisions</h3>
+      <ol>
+        <li>The source database team provides read-replica access before 29 Sep; otherwise the issue is escalated to the data owner's director.</li>
+        <li>Go-live stays fixed in week 48; the load-test buffer drops from two weeks to one.</li>
+      </ol>
+      <h3>Actions</h3>
+      <table>
+        <tr><th>Action</th><th>Owner</th><th>Due</th></tr>
+        <tr><td>Provide read-replica credentials</td><td>Source database team lead</td><td>29 Sep</td></tr>
+        <tr><td>Sign off the order event schema</td><td>Data owner</td><td>2 Oct</td></tr>
+        <tr><td>Update and circulate the schedule</td><td>Project manager</td><td>25 Sep</td></tr>
+      </table>
+      <p style="margin:12px 0 0;color:var(--ink-2);font-size:.88rem">Next meeting: Thursday 1 October, 10:00, 30 minutes.</p>
+    </div>
+  </div>
+</section>
+
+<!-- AI COPILOT -->
+<section class="panel" id="ai">
+  <p class="intro">Where AI helps a project manager on data pipeline projects: <b>drafting, summarising and spotting patterns</b>. The prompt builder below packages your current tracker data into a ready-to-use prompt for any AI assistant. Decisions, technical choices and anything sent to a stakeholder stay with people.</p>
+
+  <div class="ai-grid">
+    <div class="box">
+      <p class="ai-label">1. Choose a task</p>
+      <div class="usecases" id="ucList"></div>
+      <div class="ucd" id="ucDesc"></div>
+      <p class="ai-label" style="margin-top:14px">2. Choose the scope</p>
+      <div class="filters" id="aiScope" style="margin-bottom:0"></div>
+    </div>
+    <div class="box promptbox">
+      <p class="ai-label" style="margin:0">3. Copy the prompt into your AI assistant</p>
+      <textarea id="promptOut" readonly aria-label="Generated prompt"></textarea>
+      <div class="pbar">
+        <button class="btn" id="copyBtn">Copy prompt</button>
+        <span class="msg" id="copyMsg" role="status"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="box radar" style="margin-bottom:18px">
+    <h3>Delay-risk radar</h3>
+    <p style="margin:0 0 6px;font-size:.88rem;color:var(--ink-2)">A transparent, rule-based score computed from the tabs above, so you can see why a project is flagged. Data owner deliverable late: +3 · Partly received or unanswered: +1 · Card blocked by data owner: +1 · Slipping task: +2 · Open P1/P2 incident: +3 · Overdue issue: +2 · Freshness SLA hit rate below 98%: +1, below 90%: +2. High from 8 points, Medium from 4. Use the “Delay-risk scan” task above to have an AI challenge it.</p>
+    <div id="radar"></div>
+  </div>
+
+  <div class="two">
+    <div class="box">
+      <h3>Guardrails</h3>
+      <ul class="guard">
+        <li><b>Never paste personal data or production records.</b> Use aggregates, counts and placeholders. Replace source, people and product names if the tool is not approved for confidential data.</li>
+        <li><b>AI drafts, people decide.</b> Read every output before it goes to a data owner or a steering committee.</li>
+        <li><b>Check numbers and dates</b> against the trackers. AI can misread or invent them.</li>
+        <li><b>Technical choices stay with the tech lead.</b> Use AI to prepare questions, not verdicts.</li>
+        <li><b>Be transparent.</b> Follow your organisation's policy on disclosing AI-assisted documents.</li>
+      </ul>
+    </div>
+    <div class="box">
+      <h3>A weekly routine with AI</h3>
+      <ol class="flow">
+        <li><b>Monday: scan</b><span>Run the delay-risk scan on fresh tracker data and pick the two or three items to act on.</span></li>
+        <li><b>Before each stakeholder meeting: prepare</b><span>Draft the chase email for overdue deliverables and check the agenda.</span></li>
+        <li><b>After each meeting: capture</b><span>Turn raw notes into minutes, actions and RAID updates within the hour.</span></li>
+        <li><b>Friday: report</b><span>Generate the weekly status draft, correct it, then send.</span></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<footer>Fictional data for illustration. Reference week: W39, 2026.</footer>
+</div>
+
+<script>
+
+const P = {
+  p1:{name:"Customer 360", client:"Marketing", c:"var(--p1)", t:"t1"},
+  p2:{name:"Finance data mart", client:"Finance", c:"var(--p2)", t:"t2"},
+  p3:{name:"Order event stream", client:"Operations", c:"var(--p3)", t:"t3"}
+};
+const TODAY = 39;
+const tag = k => `<span class="tag ${P[k].t}">${P[k].name}</span>`;
+
+/* Tabs */
+document.querySelectorAll('nav.tabs button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('nav.tabs button').forEach(x=>x.setAttribute('aria-selected',x===b));
+  document.querySelectorAll('section.panel').forEach(s=>s.classList.toggle('on',s.id===b.dataset.t));
+  if(b.dataset.t==='ai') renderAI();
+  try{localStorage.setItem('df-tab',b.dataset.t)}catch(e){}
+}));
+
+/* Portfolio */
+const port = [
+  {k:"p1",st:"warn",stL:"Watch",pct:58,golive:"W45 (6 Nov)",ecart:"+3 days",budget:"62% used",next:"Identity matching validation, W41",
+   alert:{w:1,txt:"The full extract from the email platform was due on 22 Sep and arrived only in part. Chased; answer expected Monday."}},
+  {k:"p2",st:"ok",stL:"On track",pct:34,golive:"W50 (11 Dec)",ecart:"0",budget:"31% used",next:"Chart of accounts mapping review, W40",alert:null},
+  {k:"p3",st:"ko",stL:"Late",pct:41,golive:"W48 (27 Nov)",ecart:"+1 week",budget:"45% used",next:"First CDC stream into the lake, W42",
+   alert:{w:0,txt:"Read-replica access for change data capture not provided for 10 days. Escalate to the data owner's director if nothing arrives Monday."}}
+];
+document.getElementById('projCards').innerHTML = port.map(p=>`
+<article class="proj" style="--c:${P[p.k].c}">
+  <div class="head"><div><h3 style="margin:0">${P[p.k].name}</h3><div class="client">${P[p.k].client}</div></div>
+  <span class="status s-${p.st}">${p.stL}</span></div>
+  <div class="bar" aria-label="Progress ${p.pct}%"><i style="width:${p.pct}%"></i></div>
+  <div class="client">Progress ${p.pct}%</div>
+  <dl class="kv"><dt>Go-live</dt><dd>${p.golive}</dd><dt>Variance</dt><dd>${p.ecart}</dd><dt>Budget</dt><dd>${p.budget}</dd><dt>Next milestone</dt><dd>${p.next}</dd></dl>
+  ${p.alert?`<div class="alert ${p.alert.w?'w':''}">${p.alert.txt}</div>`:''}
+</article>`).join('');
+const ms=[["W40","p2","Chart of accounts mapping review"],["W41","p1","Identity matching validation"],["W42","p3","First CDC stream into the lake (moved from W41)"],["W43","p2","Month-end close mart sign-off"]];
+document.getElementById('nextMs').innerHTML = ms.map(m=>`<li><span class="when">${m[0]}</span>${tag(m[1])}<span>${m[2]}</span></li>`).join('');
+const meet=[["Mon 28 Sep","p1","Weekly, 30 min: email platform extract"],["Tue 29 Sep","p2","Weekly, 30 min"],["Thu 1 Oct","p3","Weekly, 30 min: replica access"],["Thu 8 Oct","p2","Monthly steering committee"]];
+document.getElementById('nextMeet').innerHTML = meet.map(m=>`<li><span class="when">${m[0]}</span>${tag(m[1])}<span>${m[2]}</span></li>`).join('');
+
+/* Gantt */
+const W0=36, W1=51, NW=W1-W0+1;
+const G=[
+ {k:"p1",rows:[
+  ["Source discovery and data contracts",36,37,"done"],["Ingestion: CRM and web analytics",37,39,"done"],["Identity matching and customer model",39,41,"late"],
+  ["Quality tests and backfill",42,44],["dep","Email platform extract",38,"ko"],["dep","Consent flag definitions",41],["ms","Go-live",45]]},
+ {k:"p2",rows:[
+  ["Source discovery",36,38,"done"],["ERP ingestion",38,40],["Core finance model",41,44],["Reporting layer and dashboards",44,47],["Reconciliation with finance",48,49],
+  ["dep","Chart of accounts extract",40],["dep","Reporting definitions sign-off",43],["ms","Mapping review",40],["ms","Go-live",50]]},
+ {k:"p3",rows:[
+  ["Event and schema design",36,37,"done"],["CDC connector",38,40,"late"],["Stream processing and lake sink",41,43,"late"],["Load test and cut-over",45,47],
+  ["dep","Read-replica access",38,"ko"],["dep","Schema owners sign-off",40],["ms","Go-live",48]]}
+];
+(function(){
+  const g=document.getElementById('ganttGrid');
+  g.style.gridTemplateColumns=`220px repeat(${NW},1fr)`;
+  let h=`<div class="g-label" style="border-top:0;font-weight:600">Task</div>`;
+  for(let w=W0;w<=W1;w++) h+=`<div class="g-h ${w===TODAY?'cur':''}">W${w}</div>`;
+  G.forEach(p=>{
+    h+=`<div class="g-label grp" style="color:${P[p.k].c}">${P[p.k].name} · ${P[p.k].client}</div><div class="g-row grp" style="grid-column:span ${NW}"></div>`;
+    p.rows.forEach(r=>{
+      let label,inner;
+      const pos=w=>((w-W0)/NW*100);
+      if(r[0]==="dep"){label="↳ Data owner: "+r[1];inner=`<i class="g-dep ${r[3]==='ko'?'ko':''}" style="left:calc(${pos(r[2])}% + ${100/NW/2}% - 8px)" title="${r[1]}"></i>`;}
+      else if(r[0]==="ms"){label="◆ "+r[1];inner=`<i class="g-ms" style="left:calc(${pos(r[2])}% + ${100/NW/2}% - 8px)" title="${r[1]}"></i>`;}
+      else{label=r[0];inner=`<div class="g-bar ${r[3]||''}" style="--c:${P[p.k].c};left:${pos(r[1])}%;width:calc(${(r[2]-r[1]+1)/NW*100}% - 4px);margin-left:2px">${r[3]==='late'?'slippage':''}</div>`;}
+      h+=`<div class="g-label" title="${label}">${label}</div><div class="g-row" style="grid-column:span ${NW}">${inner}</div>`;
+    });
+  });
+  g.innerHTML=h;
+  const line=document.createElement('div');line.className='g-today';
+  line.style.left=`calc(220px + (100% - 220px) * ${(TODAY-W0+0.5)/NW})`;
+  g.appendChild(line);
+})();
+
+/* Data flow map */
+const FLOW={
+ p1:[
+  {n:"Sources",d:"CRM, web analytics, email platform",st:"warn",o:"Marketing ops",note:"Email platform extract only partly received; data processing agreement not yet signed.",dep:"Full extract from the email platform"},
+  {n:"Ingestion",d:"Managed connectors, daily loads",st:"ok",o:"Data engineer",note:"CRM and web analytics load daily. The email platform connector is waiting for the full extract."},
+  {n:"Raw layer",d:"Immutable copies, 13-month retention",st:"ok",o:"Data engineer",note:"Retention policy still to be agreed with marketing (backlog item)."},
+  {n:"Transformation",d:"Identity matching, customer model",st:"warn",o:"Analytics engineer",note:"Release 2 slipping by 3 days. About 4% duplicate CRM records still to resolve.",dep:"Consent flag definitions"},
+  {n:"Serving",d:"Customer 360 dashboard, audience export",st:"ok",o:"Analytics engineer",note:"Dashboard live for marketing analysts on sample data."}
+ ],
+ p2:[
+  {n:"Sources",d:"ERP finance exports",st:"ok",o:"Finance systems team",note:"Chart of accounts extract due 2 Oct, on track."},
+  {n:"Ingestion",d:"Scheduled file loads",st:"ok",o:"Data engineer",note:"Loads running on test files."},
+  {n:"Raw layer",d:"Landing zone and history",st:"ok",o:"Data engineer",note:"Row-level access for finance delivered."},
+  {n:"Transformation",d:"Core finance model, month-end close",st:"ok",o:"Analytics engineer",note:"Mapping review planned for W40."},
+  {n:"Serving",d:"Finance reports and dashboards",st:"idle",o:"Analytics engineer",note:"Starts in W44, once the core model is signed off.",dep:"Reporting definitions sign-off"}
+ ],
+ p3:[
+  {n:"Sources",d:"Order system database",st:"ko",o:"Source database team",note:"No read-replica access for change data capture, requested on 15 Sep.",dep:"Read-replica access for change data capture"},
+  {n:"Ingestion",d:"Change data capture connector",st:"ko",o:"Data engineer",note:"Connector built but cannot be tested without access."},
+  {n:"Raw layer",d:"Event stream and lake sink",st:"idle",o:"Data engineer",note:"Waiting for the first real events."},
+  {n:"Transformation",d:"Stream processing, deduplication",st:"warn",o:"Data engineer",note:"Duplicate events after a restart (INC-030). The fix needs real data to compare with the source.",dep:"Read-replica access for change data capture"},
+  {n:"Serving",d:"Operations dashboard, late-order alerts",st:"warn",o:"Analytics engineer",note:"Order counts overstated by about 8% until deduplication is fixed."}
+ ]
+};
+const FST={ok:["Healthy","s-ok","var(--ok)"],warn:["At risk","s-warn","var(--warn)"],ko:["Blocked","s-ko","var(--ko)"],idle:["Not started","s-idle","var(--line)"]};
+let flSel={k:"p3",i:0};
+function flowDetail(){
+  const s=FLOW[flSel.k][flSel.i];
+  document.getElementById('flowDetail').innerHTML=`<h3>${P[flSel.k].name} · ${s.n}</h3>
+   <dl class="kv"><dt>Status</dt><dd><span class="status ${FST[s.st][1]}">${FST[s.st][0]}</span></dd><dt>Content</dt><dd>${s.d}</dd><dt>Owner</dt><dd>${s.o}</dd><dt>Situation</dt><dd>${s.note}</dd>${s.dep?`<dt>Waiting on</dt><dd>${s.dep}</dd>`:''}</dl>`;
+}
+(function(){
+  const host=document.getElementById('flowMap');
+  host.innerHTML=Object.keys(P).map(k=>{
+    const st=FLOW[k], bi=st.findIndex(s=>s.st==='ko');
+    const sum=bi>=0?`Blocked at “${st[bi].n}”: ${st.length-bi-1} downstream stage(s) cannot be completed or tested.`:(st.some(s=>s.st==='warn')?'No blocker, but at least one stage is at risk.':'No blocker.');
+    return `<div class="fl-head">${tag(k)}<span class="fl-sum">${sum}</span></div>
+    <div class="flowrow">${st.map((s,i)=>`<button class="stage" style="--sc:${FST[s.st][2]}" data-k="${k}" data-i="${i}" aria-pressed="${flSel.k===k&&flSel.i===i}"><b>${s.n}</b><span class="sd">${s.d}</span><span class="status ${FST[s.st][1]}">${FST[s.st][0]}</span></button>`).join('')}</div>`;
+  }).join('');
+  host.querySelectorAll('.stage').forEach(b=>b.onclick=()=>{
+    flSel={k:b.dataset.k,i:+b.dataset.i};
+    host.querySelectorAll('.stage').forEach(x=>x.setAttribute('aria-pressed',x===b));
+    flowDetail();
+  });
+  flowDetail();
+})();
+
+/* Shared filter chips */
+function chips(el,cur,on){
+  const opts=[["all","All projects"],...Object.keys(P).map(k=>[k,P[k].name])];
+  el.innerHTML=opts.map(o=>`<button class="chip" aria-pressed="${o[0]===cur}" data-v="${o[0]}">${o[1]}</button>`).join('');
+  el.querySelectorAll('.chip').forEach(b=>b.onclick=()=>on(b.dataset.v));
+}
+
+/* Kanban */
+const COLS=[["backlog","Backlog"],["todo","To do"],["doing","In progress",4],["client","Blocked by data owner"],["recette","In acceptance"],["done","Done"]];
+const K0=[
+ {id:1,k:"p1",t:"Email platform connector",who:"Data engineer",pts:5,c:"client"},
+ {id:2,k:"p1",t:"Deduplicate customers by email",who:"Analytics engineer",pts:3,c:"recette"},
+ {id:3,k:"p1",t:"Consent flag propagation",who:"Data engineer",pts:3,c:"doing"},
+ {id:4,k:"p1",t:"Retention policy for raw data",who:"Unassigned",pts:2,c:"backlog"},
+ {id:5,k:"p2",t:"Month-end close model",who:"Analytics engineer",pts:5,c:"doing"},
+ {id:6,k:"p2",t:"Chart of accounts import",who:"Data engineer",pts:8,c:"client"},
+ {id:7,k:"p2",t:"Row-level access for finance",who:"Data engineer",pts:5,c:"done"},
+ {id:8,k:"p2",t:"Revenue by entity view",who:"Unassigned",pts:3,c:"todo"},
+ {id:9,k:"p3",t:"CDC connector for orders",who:"Data engineer",pts:8,c:"client"},
+ {id:10,k:"p3",t:"Dead-letter queue and alerts",who:"Data engineer",pts:3,c:"doing"},
+ {id:11,k:"p3",t:"Schema registry setup",who:"Unassigned",pts:5,c:"todo"},
+ {id:12,k:"p3",t:"Event schema design",who:"Data engineer",pts:3,c:"done"},
+ {id:13,k:"p2",t:"Scheduled PDF export",who:"Unassigned",pts:3,c:"backlog"},
+ {id:14,k:"p1",t:"Marketing audience sync",who:"Unassigned",pts:2,c:"backlog"}
+];
+let K; try{K=JSON.parse(localStorage.getItem('df-kanban'))}catch(e){} if(!Array.isArray(K)) K=JSON.parse(JSON.stringify(K0));
+let kf="all";
+function saveK(){try{localStorage.setItem('df-kanban',JSON.stringify(K))}catch(e){}}
+function renderK(){
+  chips(document.getElementById('kFilters'),kf,v=>{kf=v;renderK()});
+  const f=document.getElementById('kFilters');
+  const r=document.createElement('button');r.className='reset';r.textContent='Reset board';
+  r.onclick=()=>{K=JSON.parse(JSON.stringify(K0));saveK();renderK()};f.appendChild(r);
+  const b=document.getElementById('kBoard');
+  b.innerHTML=COLS.map(([id,l,wip])=>{
+    const items=K.filter(x=>x.c===id&&(kf==="all"||x.k===kf));
+    const all=K.filter(x=>x.c===id).length;
+    const over=wip&&all>wip;
+    return `<div class="col ${id==='client'?'block':''}" data-c="${id}"><h3>${l}<small class="${over?'wip':''}">${all}${wip?' / '+wip+' max':''}</small></h3>
+    ${items.map(x=>`<div class="card" draggable="true" data-id="${x.id}" style="--c:${P[x.k].c}">${x.t}<div class="meta"><span>${P[x.k].name}</span><span>${x.who} · ${x.pts} pts</span></div></div>`).join('')}</div>`;
+  }).join('');
+  b.querySelectorAll('.card').forEach(c=>{
+    c.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',c.dataset.id);c.classList.add('dragging')});
+    c.addEventListener('dragend',()=>c.classList.remove('dragging'));
+  });
+  b.querySelectorAll('.col').forEach(col=>{
+    col.addEventListener('dragover',e=>{e.preventDefault();col.classList.add('over')});
+    col.addEventListener('dragleave',()=>col.classList.remove('over'));
+    col.addEventListener('drop',e=>{e.preventDefault();col.classList.remove('over');const id=+e.dataTransfer.getData('text/plain');const it=K.find(x=>x.id===id);if(it){it.c=col.dataset.c;saveK();renderK();}});
+  });
+}
+renderK();
+
+/* RICE */
+const R=[
+ {k:"p1",f:"Customer lifetime value model",r:1200,i:2,c:80,e:4},
+ {k:"p1",f:"Real-time audience sync",r:300,i:2,c:50,e:6},
+ {k:"p1",f:"Consent audit trail",r:200,i:3,c:80,e:3},
+ {k:"p2",f:"Automated reconciliation checks",r:80,i:3,c:80,e:3},
+ {k:"p2",f:"Self-service finance metrics",r:500,i:2,c:50,e:6},
+ {k:"p2",f:"Month-end close dashboard",r:60,i:2,c:100,e:2},
+ {k:"p3",f:"Late-order alerts",r:400,i:3,c:80,e:3},
+ {k:"p3",f:"Replay tool for failed events",r:15,i:2,c:100,e:2},
+ {k:"p3",f:"Exactly-once processing",r:40,i:1,c:50,e:8}
+];
+let rf="all";
+const riceScore=x=>x.r*x.i*(x.c/100)/x.e;
+function renderR(){
+  chips(document.getElementById('rFilters'),rf,v=>{rf=v;renderR()});
+  const rows=R.map((x,idx)=>({...x,idx,s:riceScore(x)})).filter(x=>rf==="all"||x.k===rf).sort((a,b)=>b.s-a.s);
+  const t=document.getElementById('riceT');
+  t.innerHTML=`<tr><th>Rank</th><th>Feature</th><th>Project</th><th class="num">Reach</th><th class="num">Impact</th><th class="num">Confidence %</th><th class="num">Effort</th><th class="num">Score</th></tr>`+
+  rows.map((x,n)=>`<tr><td class="rank">${n+1}</td><td>${x.f}</td><td>${tag(x.k)}</td>
+   ${["r","i","c","e"].map(f=>`<td class="num"><input type="number" min="0" step="${f==='i'?0.25:1}"${f==='i'?' max="3"':f==='c'?' max="100"':''} value="${x[f]}" data-i="${x.idx}" data-f="${f}" aria-label="${f} ${x.f}"></td>`).join('')}
+   <td class="num score">${Math.round(x.s)}</td></tr>`).join('');
+  t.querySelectorAll('input').forEach(inp=>inp.addEventListener('change',()=>{const v=parseFloat(inp.value);const f=inp.dataset.f;if(!isNaN(v)&&v>=0&&!(f==='e'&&v===0)&&!(f==='i'&&v>3)&&!(f==='c'&&v>100)){R[inp.dataset.i][f]=v;}renderR();}));
+}
+renderR();
+
+/* RAID */
+const RAID=[
+ {ty:"R",k:"p1",d:"Consent rules not yet defined: risk of loading data that cannot be used",crit:"High",own:"Project manager",due:"28 Sep",st:"Chased"},
+ {ty:"R",k:"p2",d:"Chart of accounts changes during the project and breaks the mappings",crit:"Medium",own:"Tech lead",due:"9 Oct",st:"To analyse"},
+ {ty:"R",k:"p3",d:"Source database team unavailable during the maintenance freeze",crit:"Medium",own:"Project manager",due:"16 Oct",st:"Deputy requested"},
+ {ty:"A",k:"p3",d:"Escalate read-replica access to the data owner's director",crit:"High",own:"Project manager",due:"29 Sep",st:"Planned"},
+ {ty:"A",k:"p1",d:"Schedule the identity matching review with marketing analysts",crit:"Medium",own:"Project manager",due:"2 Oct",st:"In progress"},
+ {ty:"I",k:"p3",d:"CDC connector blocked: no access to the read replica",crit:"High",own:"Source database team",due:"22 Sep",st:"Open",late:1},
+ {ty:"I",k:"p1",d:"About 4% duplicate customer records in the CRM extract",crit:"Medium",own:"Marketing ops",due:"5 Oct",st:"Open"},
+ {ty:"D",k:"p2",d:"Chart of accounts extract from the finance system",crit:"High",own:"Finance",due:"2 Oct",st:"Awaited"},
+ {ty:"D",k:"p1",d:"Data processing agreement signed with the email platform",crit:"High",own:"Marketing",due:"9 Oct",st:"In signature"}
+];
+const TYN={R:"Risk",A:"Action",I:"Issue",D:"Dependency"};
+const CR={"High":"s-ko","Medium":"s-warn","Low":"s-ok"};
+let raidF="all";
+function renderRAID(){
+  const el=document.getElementById('raidFilters');
+  const opts=[["all","All"],["R","Risks"],["A","Actions"],["I","Issues"],["D","Dependencies"]];
+  el.innerHTML=opts.map(o=>`<button class="chip" aria-pressed="${o[0]===raidF}" data-v="${o[0]}">${o[1]} ${o[0]==='all'?'':'('+RAID.filter(x=>x.ty===o[0]).length+')'}</button>`).join('');
+  el.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{raidF=b.dataset.v;renderRAID()});
+  document.getElementById('raidT').innerHTML=`<tr><th>Type</th><th>Project</th><th>Description</th><th>Criticality</th><th>Owner</th><th>Due</th><th>Status</th></tr>`+
+   RAID.filter(x=>raidF==="all"||x.ty===raidF).map(x=>`<tr><td class="type${x.ty}"><b>${TYN[x.ty]}</b></td><td>${tag(x.k)}</td><td>${x.d}</td><td><span class="crit ${CR[x.crit]}">${x.crit}</span></td><td>${x.own}</td><td class="${x.late?'late-txt':''}">${x.due}${x.late?' (overdue)':''}</td><td>${x.st}</td></tr>`).join('');
+}
+renderRAID();
+
+/* Client dependencies */
+const AT=[
+ {k:"p3",w:"Read-replica access for change data capture",dem:"15 Sep",bes:"22 Sep",imp:"Blocks the CDC connector; +1 week so far",st:"ko",stL:"Late, escalating"},
+ {k:"p1",w:"Full extract from the email platform",dem:"8 Sep",bes:"22 Sep",imp:"Delays identity matching validation by 3 days",st:"warn",stL:"Partly received"},
+ {k:"p2",w:"Chart of accounts extract (CSV)",dem:"18 Sep",bes:"2 Oct",imp:"Account mapping cannot be tested",st:"ok",stL:"On track"},
+ {k:"p3",w:"Schema owners sign-off on event contracts",dem:"24 Sep",bes:"2 Oct",imp:"Blocks the stream processing work",st:"ok",stL:"On track"},
+ {k:"p1",w:"Data processing agreement with the email platform",dem:"10 Sep",bes:"9 Oct",imp:"No personal data can be loaded in production",st:"warn",stL:"No news, chase Monday"},
+ {k:"p2",w:"Reporting definitions sign-off (revenue, margin)",dem:"25 Sep",bes:"23 Oct",imp:"Delays the reporting layer",st:"ok",stL:"Requested"},
+ {k:"p1",w:"Consent flag definitions",dem:"15 Sep",bes:"12 Oct",imp:"Go-live possible with a conservative default (exclude when unknown)",st:"ok",stL:"In progress on data owner side"}
+];
+document.getElementById('attT').innerHTML=`<tr><th>Project</th><th>Deliverable expected</th><th>Requested on</th><th>Needed by</th><th>Impact if late</th><th>Status</th></tr>`+
+ AT.map(x=>`<tr><td>${tag(x.k)}</td><td>${x.w}</td><td>${x.dem}</td><td><b>${x.bes}</b></td><td>${x.imp}</td><td><span class="status s-${x.st}">${x.stL}</span></td></tr>`).join('');
+
+/* Incidents */
+const INC=[
+ {id:"INC-031",k:"p1",sev:1,date:"24 Sep 19:40",t:"Daily customer load failed after a column was renamed in the CRM export",imp:"Marketing dashboards empty before a campaign review",st:"Resolved",tech:"Tech lead",res:"3h 10m",resMin:190,sla:"4 h",ok:1,pm:"Planned 29 Sep",
+  tl:[["19:40","Monitoring","Alert: load failed, expected column not found in the source file"],["19:55","Project manager","Rated P1 with the tech lead; ticket opened"],["20:05","Project manager","Message to marketing: incident identified, next update at 21:00"],["21:00","Project manager","Update to marketing: the CRM export renamed a column without notice"],["22:50","Engineering team","Mapping fixed, load replayed, row counts checked against the source"],["23:00","Project manager","Closure message; post-incident review proposed for 29 Sep"]]},
+ {id:"INC-030",k:"p3",sev:2,date:"23 Sep 10:15",t:"Duplicate order events after a connector restart",imp:"Order volumes overstated in the operations dashboard",st:"In progress",tech:"Data engineer",res:"—",sla:"1 business day",ok:0,pm:"To be planned",
+  tl:[["10:15","Data consumer","Operations analyst reports order counts about 8% above the source system"],["10:40","Project manager","Rated P2; workaround proposed: use the source system figures until fixed"],["11:30","Engineering team","Likely cause: events replayed after the restart without a deduplication key"],["16:00","Project manager","Update to operations; permanent fix blocked, no read-replica access to compare with the source"],["24 Sep","Project manager","Deadline exceeded, linked to the open issue in the RAID log; escalation planned"]]},
+ {id:"INC-029",k:"p2",sev:3,date:"21 Sep 14:02",t:"Revenue by entity differs from the finance report by a rounding gap",imp:"Small gap versus the finance report, no wrong decision",st:"Resolved",tech:"Analytics engineer",res:"2 d",sla:"Next release",ok:1,pm:"Not required",
+  tl:[["21 Sep","Data consumer","Spotted by finance during the weekly review"],["21 Sep","Project manager","Rated P3, added to the current iteration"],["23 Sep","Engineering team","Rounding aligned with the finance rule, released Wednesday"],["24 Sep","Project manager","Confirmed to finance at the weekly meeting"]]},
+ {id:"INC-028",k:"p1",sev:2,date:"16 Sep 08:30",t:"Web analytics data missing for 6 hours",imp:"Campaign performance report incomplete",st:"Closed",tech:"Data engineer",res:"6 h",resMin:360,sla:"1 business day",ok:1,pm:"Done 18 Sep · 2 actions",
+  tl:[["08:30","Data consumer","Marketing notices missing sessions in the campaign report"],["08:45","Project manager","Rated P2; message to marketing"],["12:10","Engineering team","API quota exceeded; quota raised and backfill started"],["14:30","Project manager","Closure; backfill completed and counts confirmed"],["18 Sep","Project manager","Post-incident review: quota alert added, check before each go-live"]]},
+ {id:"INC-027",k:"p2",sev:4,date:"14 Sep 11:00",t:"Column header mislabelled in the finance dashboard",imp:"Cosmetic",st:"Backlog",tech:"—",res:"—",sla:"By priority",ok:1,pm:"Not required",
+  tl:[["14 Sep","Data consumer","Comment received by email"],["14 Sep","Project manager","Rated P4, added to the backlog"]]}
+];
+const SEVL={1:"P1 blocking",2:"P2 major",3:"P3 minor",4:"P4 cosmetic"};
+const STC={"In progress":"s-ko","Resolved":"s-ok","Closed":"s-ok","Backlog":"s-warn"};
+const reviewTodo=x=>x.sev<=2&&!/^Done/.test(x.pm);
+let incF="open", incSel="INC-030";
+function fmtMin(m){const h=Math.floor(m/60),r=Math.round(m%60);return h+'h '+String(r).padStart(2,'0')+'m';}
+function renderInc(){
+  const open=INC.filter(x=>x.st==="In progress").length;
+  const p12=INC.filter(x=>x.sev<=2);
+  const slaOk=p12.filter(x=>x.ok).length;
+  const timed=p12.filter(x=>x.resMin);
+  const avg=timed.length?fmtMin(timed.reduce((a,x)=>a+x.resMin,0)/timed.length):'—';
+  document.getElementById('incKpi').innerHTML=[
+   [open,"Open incidents"],
+   [`${slaOk} / ${p12.length}`,"P1–P2 within target"],
+   [avg,"Avg. P1–P2 restoration time (30 days)"],
+   [INC.filter(reviewTodo).length,"Post-incident reviews to do"]
+  ].map(k=>`<div class="box"><div class="v">${k[0]}</div><div class="l">${k[1]}</div></div>`).join('');
+
+  const fe=document.getElementById('incFilters');
+  const opts=[["open","To handle"],["all","All"],...Object.keys(P).map(k=>[k,P[k].name])];
+  fe.innerHTML=opts.map(o=>`<button class="chip" aria-pressed="${o[0]===incF}" data-v="${o[0]}">${o[1]}</button>`).join('');
+  fe.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{incF=b.dataset.v;renderInc()});
+
+  const rows=INC.filter(x=>incF==="all"||(incF==="open"?(x.st==="In progress"||reviewTodo(x)):x.k===incF));
+  document.getElementById('incT').innerHTML=`<tr><th>Ref.</th><th>Severity</th><th>Project</th><th>Incident</th><th>Impact on consumers</th><th>Opened</th><th>Status</th><th>Deadline</th><th>Review</th></tr>`+
+   (rows.length?rows.map(x=>`<tr class="row ${x.id===incSel?'sel':''}" data-id="${x.id}" tabindex="0"><td><b>${x.id}</b></td><td><span class="crit sev${x.sev}">${SEVL[x.sev]}</span></td><td>${tag(x.k)}</td><td>${x.t}</td><td>${x.imp}</td><td>${x.date}</td><td><span class="status ${STC[x.st]}">${x.st}</span></td><td class="${x.ok?'sla-ok':'sla-ko'}">${x.res==='—'?(x.ok?'—':'Missed'):x.res} <span style="font-weight:400;color:var(--ink-2)">/ ${x.sla}</span></td><td>${x.pm}</td></tr>`).join('')
+   :`<tr><td colspan="9">No incident in this filter.</td></tr>`);
+  document.querySelectorAll('#incT tr.row').forEach(r=>{
+    const go=()=>{incSel=r.dataset.id;renderInc()};
+    r.onclick=go; r.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();go()}};
+  });
+  const x=INC.find(i=>i.id===incSel);
+  document.getElementById('incDetail').innerHTML=x?`<h3>${x.id}: ${x.t}</h3>
+   <dl class="kv"><dt>Project</dt><dd>${P[x.k].name} (${P[x.k].client})</dd><dt>Severity</dt><dd>${SEVL[x.sev]}</dd><dt>Technical handling</dt><dd>${x.tech}</dd><dt>Post-incident review</dt><dd>${x.pm}</dd></dl>
+   <h3 style="margin-top:14px">Timeline and communication</h3>
+   <ul class="tl">${x.tl.map(t=>`<li><span>${t[0]}</span><span class="who">${t[1]}</span><span>${t[2]}</span></li>`).join('')}</ul>`
+   :`<p class="intro" style="margin:0">Select an incident to see its timeline.</p>`;
+}
+renderInc();
+
+/* Pipeline health: computed from a run log */
+const HW0=Date.UTC(2026,7,3), DAY=864e5, HR=36e5, HWEEKS=8, HW_FIRST=32;
+const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+/* Per pipeline and per week: failure probability, probability of finishing late, test pass probability */
+const HP={
+ p1:{perDay:1,tests:40,dur:42,rec:150,seed:21,fail:[.07,.06,.05,.05,.04,.03,.03,.03],late:[.10,.08,.07,.06,.05,.05,.04,.04],dq:[.96,.96,.97,.97,.975,.98,.98,.98]},
+ p2:{perDay:1,tests:60,dur:35,rec:120,seed:6,fail:[.02,.02,.015,.015,.01,.01,.01,.01],late:[.03,.02,.02,.015,.01,.01,.01,.01],dq:[.988,.988,.99,.99,.99,.99,.992,.992]},
+ p3:{perDay:2,tests:25,dur:18,rec:420,seed:5,fail:[.08,.10,.12,.15,.18,.20,.20,.22],late:[.12,.15,.18,.20,.25,.25,.28,.30],dq:[.95,.94,.93,.93,.92,.92,.91,.90]}
+};
+const RUNS=(function(){
+  const out=[];
+  Object.keys(HP).forEach(k=>{
+    const c=HP[k], r=rng(c.seed);
+    for(let d=0;d<HWEEKS*7;d++){
+      const w=Math.floor(d/7);
+      for(let i=0;i<c.perDay;i++){
+        const t=HW0+d*DAY+(2+i*12)*HR;
+        const dur=Math.max(5,c.dur*Math.exp((r()-.5)*.5));
+        const failed=r()<c.fail[w];
+        const late=!failed&&r()<c.late[w];
+        let tests=0,passed=0,delay=null,rec=null;
+        if(!failed){tests=c.tests;for(let q=0;q<tests;q++)if(r()<c.dq[w])passed++;delay=late?15+r()*150:-(10+r()*120);}
+        else rec=Math.max(20,c.rec*Math.exp((r()-.5)));
+        out.push({k,t,w,dur,status:failed?'failed':late?'late':'ok',tests,passed,delay,rec});
+      }
+    }
+  });
+  return out.sort((a,b)=>a.t-b.t);
+})();
+const median=a=>{if(!a.length)return null;const s=[...a].sort((x,y)=>x-y),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2;};
+const fmtDur=m=>m==null?'n/a':m<60?Math.round(m)+' min':m<1440?Math.floor(m/60)+'h '+String(Math.round(m%60)).padStart(2,'0')+'m':(m/1440).toFixed(1)+' d';
+const fmtDT=t=>{const d=new Date(t);return d.getUTCDate()+' '+MON[d.getUTCMonth()]+' '+String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0');};
+function hMetrics(l){
+  const n=l.length,fl=l.filter(x=>x.status==='failed'),lt=l.filter(x=>x.status==='late'),ok=l.filter(x=>x.status==='ok');
+  const tt=l.reduce((a,x)=>a+x.tests,0),tp=l.reduce((a,x)=>a+x.passed,0);
+  return {n,nf:fl.length,nl:lt.length,fresh:n?ok.length/n*100:null,succ:n?(n-fl.length)/n*100:null,dq:tt?tp/tt*100:null,rec:median(fl.map(x=>x.rec)),dur:median(l.map(x=>x.dur))};
+}
+const inW=(k,w0,w1)=>RUNS.filter(x=>x.k===k&&x.w>=w0&&x.w<w1);
+function healthFor(k){return {cur:hMetrics(inW(k,4,8)),prev:hMetrics(inW(k,0,4))};}
+const HL={fresh:v=>v>=98?0:v>=90?1:2,succ:v=>v>=98?0:v>=95?1:2,dq:v=>v>=99?0:v>=97?1:2,rec:m=>m<240?0:m<1440?1:2};
+const HLAB=[["On target","s-ok"],["Watch","s-warn"],["Off target","s-ko"]];
+function dTxt(cur,prev,kind,hb,th){
+  if(cur==null||prev==null||(kind==='pct'&&prev===0)) return {t:'no comparison',c:'d-flat'};
+  const d=kind==='pct'?(cur-prev)/prev*100:cur-prev;
+  if(Math.abs(d)<th) return {t:'≈ stable vs previous 4 weeks',c:'d-flat'};
+  const txt=(d>0?'+':'')+(kind==='pct'?Math.round(d)+'%':d.toFixed(1)+' pts');
+  return {t:(d>0?'▲ ':'▼ ')+txt+' vs previous 4 weeks',c:(hb?d>0:d<0)?'d-good':'d-bad'};
+}
+const HROWS=[
+ {n:"Freshness SLA hit rate",sub:"runs finished before the deadline ÷ all runs",f:m=>m.fresh,fmt:v=>v.toFixed(0)+' %',lv:HL.fresh,hb:1,kind:'pts',th:1},
+ {n:"Run success rate",sub:"runs without failure ÷ all runs",f:m=>m.succ,fmt:v=>v.toFixed(0)+' %',lv:HL.succ,hb:1,kind:'pts',th:1},
+ {n:"Data quality test pass rate",sub:"tests passed ÷ tests run",f:m=>m.dq,fmt:v=>v.toFixed(1)+' %',lv:HL.dq,hb:1,kind:'pts',th:0.3},
+ {n:"Median recovery time",sub:"failed run to next successful run",f:m=>m.rec,fmt:fmtDur,lv:HL.rec,hb:0,kind:'pct',th:5},
+ {n:"Median run duration",sub:"start to finish, a proxy for cost and headroom",f:m=>m.dur,fmt:fmtDur,lv:null,hb:0,kind:'pct',th:5}
+];
+function hBarsSvg(k){
+  const W=480,H=210,pl=28,pb=26,pt=18;
+  const rows=[];
+  for(let w=0;w<HWEEKS;w++){const l=inW(k,w,w+1);rows.push({ok:l.filter(x=>x.status==='ok').length,late:l.filter(x=>x.status==='late').length,fail:l.filter(x=>x.status==='failed').length});}
+  const mx=Math.max(4,...rows.map(r=>r.ok+r.late+r.fail));
+  const ch=H-pt-pb, step=(W-pl)/HWEEKS, bw=32, sy=ch/mx, tick=Math.ceil(mx/4);
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Runs per week by outcome for ${P[k].name}">`;
+  for(let v=0;v<=mx;v+=tick){const y=pt+ch-v*sy;s+=`<line x1="${pl}" x2="${W}" y1="${y}" y2="${y}" style="stroke:var(--line)"/><text x="${pl-6}" y="${y+4}" text-anchor="end" font-size="11" style="fill:var(--ink-2)">${v}</text>`;}
+  rows.forEach((r,w)=>{
+    const x=pl+w*step+(step-bw)/2; let y=pt+ch;
+    [[r.ok,P[k].c],[r.late,'var(--warn)'],[r.fail,'var(--ko)']].forEach(([n,c])=>{if(!n)return;const h=n*sy;y-=h;s+=`<rect x="${x}" y="${y}" width="${bw}" height="${Math.max(1,h-1)}" rx="2" style="fill:${c}"/>`;});
+    s+=`<text x="${x+bw/2}" y="${H-8}" text-anchor="middle" font-size="11" style="fill:var(--ink-2)">W${HW_FIRST+w}</text>`;
+  });
+  return s+'</svg>';
+}
+function hQualSvg(k){
+  const vals=[];for(let w=0;w<HWEEKS;w++){vals.push(hMetrics(inW(k,w,w+1)).dq);}
+  const W=480,H=210,pl=40,pb=26,pt=16,pr=12;
+  const nums=vals.filter(v=>v!=null);
+  const lo=Math.floor(Math.min(...nums,99)-1), hi=100, ch=H-pt-pb, cw=W-pl-pr;
+  const yv=v=>pt+ch-(v-lo)/(hi-lo)*ch, xv=w=>pl+(w+.5)/HWEEKS*cw, tick=Math.max(1,Math.ceil((hi-lo)/4));
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Data quality test pass rate by week for ${P[k].name}">`;
+  for(let v=lo;v<=hi;v+=tick){s+=`<line x1="${pl}" x2="${W-pr}" y1="${yv(v)}" y2="${yv(v)}" style="stroke:var(--line)"/><text x="${pl-6}" y="${yv(v)+4}" text-anchor="end" font-size="11" style="fill:var(--ink-2)">${v}</text>`;}
+  s+=`<line x1="${pl}" x2="${W-pr}" y1="${yv(99)}" y2="${yv(99)}" stroke-dasharray="5 4" style="stroke:var(--ink-2)"/>`;
+  const pts=vals.map((v,w)=>v==null?null:xv(w).toFixed(1)+','+yv(v).toFixed(1)).filter(Boolean).join(' ');
+  s+=`<polyline fill="none" stroke-width="2.5" points="${pts}" style="stroke:${P[k].c}"/>`;
+  vals.forEach((v,w)=>{if(v==null)return;s+=`<circle cx="${xv(w)}" cy="${yv(v)}" r="4" style="fill:${P[k].c};stroke:var(--surface)"/>`;s+=`<text x="${xv(w)}" y="${H-8}" text-anchor="middle" font-size="11" style="fill:var(--ink-2)">W${HW_FIRST+w}</text>`;});
+  return s+'</svg>';
+}
+let hSel="p3";
+function renderH(){
+  const ks=Object.keys(P), res={}; ks.forEach(k=>res[k]=healthFor(k));
+  let h=`<tr><th>Last 4 weeks</th>${ks.map(k=>`<th class="proj">${tag(k)}</th>`).join('')}</tr>`;
+  HROWS.forEach(r=>{
+    h+=`<tr><td><span class="mname">${r.n}</span><span class="msub">${r.sub}</span></td>`+ks.map(k=>{
+      const {cur,prev}=res[k], v=r.f(cur), pv=r.f(prev);
+      if(v==null) return `<td><span class="val">n/a</span><span class="dl d-flat">${r.n==="Median recovery time"?'no failed run in the period':'no run in the period'}</span></td>`;
+      const dl=dTxt(v,pv,r.kind,r.hb,r.th);
+      const chip=r.lv?`<span class="status lvl ${HLAB[r.lv(v)][1]}">${HLAB[r.lv(v)][0]}</span>`:`<span class="status lvl s-idle">no target</span>`;
+      return `<td><span class="val">${r.fmt(v)}</span>${chip}<span class="dl ${dl.c}">${dl.t}</span></td>`;
+    }).join('')+'</tr>';
+  });
+  h+=`<tr class="samp"><td>Sample</td>${ks.map(k=>{const c=res[k].cur;return `<td>${c.n} runs, ${c.nf} failed, ${c.nl} late</td>`;}).join('')}</tr>`;
+  document.getElementById('hCmp').innerHTML=h;
+  document.getElementById('hFoot').textContent="Pipelines differ in schedule, volume and deadline, so compare each one with its own history rather than with the others. A freshness miss means a failed run or a run that finished after the deadline.";
+  const fe=document.getElementById('hFilters');
+  fe.innerHTML=ks.map(k=>`<button class="chip" aria-pressed="${k===hSel}" data-v="${k}">${P[k].name}</button>`).join('');
+  fe.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{hSel=b.dataset.v;renderH()});
+  document.getElementById('hBars').innerHTML=hBarsSvg(hSel);
+  document.getElementById('hLeg').innerHTML=`<span><i style="background:${P[hSel].c}"></i>On time</span><span><i style="background:var(--warn)"></i>Late</span><span><i style="background:var(--ko)"></i>Failed</span>`;
+  document.getElementById('hQual').innerHTML=hQualSvg(hSel);
+  const rows=RUNS.filter(x=>x.k===hSel).slice(-12).reverse();
+  document.getElementById('hLog').innerHTML=`<tr><th>Started</th><th>Outcome</th><th>Duration</th><th>Versus deadline</th><th>Quality tests</th><th>Recovery</th></tr>`+rows.map(x=>`<tr><td>${fmtDT(x.t)}</td><td>${x.status==='failed'?'<span class="status s-ko">Failed</span>':x.status==='late'?'<span class="status s-warn">Late</span>':'<span class="status s-ok">On time</span>'}</td><td>${fmtDur(x.dur)}</td><td>${x.delay==null?'—':x.delay>0?fmtDur(x.delay)+' late':fmtDur(-x.delay)+' early'}</td><td>${x.tests?x.passed+' / '+x.tests:'—'}</td><td>${x.rec!=null?fmtDur(x.rec):'—'}</td></tr>`).join('');
+}
+renderH();
+
+/* AI copilot: prompt builder */
+const RULES=`- Use only the data provided below. If something is missing, write "unknown". Never invent figures, dates or names.
+- Do not make or recommend technical decisions (architecture, tools, engineering practices). Raise them as questions for the tech lead.
+- Do not include personal data. Refer to datasets, counts and teams only.
+- Write in plain English, short sentences, no jargon.`;
+const UC=[
+ {id:"status",label:"Weekly status report",sub:"For the steering committee",needs:["projects","deps","raid","inc","blocked","health","flow"],
+  role:"You are an assistant to a project manager who works alongside a tech lead on data pipeline projects. You write clear, factual delivery reports for non-technical stakeholders.",
+  task:"Write this week's status report for the steering committee.",
+  format:"1. Headline (2 sentences max)\n2. One line per project: status (Green / Amber / Red), variance, next milestone\n3. Data health: one line per pipeline (freshness, failed runs, open quality issues)\n4. Top 3 risks, each with a proposed mitigation and an owner\n5. Decisions needed this week\n6. Overdue deliverables from data owners\nMaximum 250 words.",
+  out:"A one-page report ready to edit.",check:"Statuses, dates, variances and health figures against the trackers."},
+ {id:"chase",label:"Data owner chase email",sub:"For late or at-risk deliverables",needs:["projects","deps"],
+  role:"You are an assistant to a project manager. You write professional, firm and friendly emails to data owners and source system teams.",
+  task:"Draft an email to the data owner about the overdue or at-risk deliverables listed under SOURCE DEPENDENCIES (status Late, Partly received or No news). For each one, state what is needed, by when, and the concrete impact on the schedule and on the downstream pipeline stages if it is late. Offer a 15-minute call to unblock. If several data owners are involved, write one email per team.",
+  format:"Two variants per email: (a) short, 5 lines maximum; (b) detailed, with a bullet list. Include a subject line. No blame.",
+  out:"Two email drafts per data owner.",check:"Tone, and that nothing is promised on the team's behalf."},
+ {id:"risk",label:"Delay-risk scan",sub:"Which project might slip?",needs:["projects","deps","raid","inc","blocked","health","flow"],
+  role:"You are a delivery risk analyst supporting a project manager on data pipeline projects.",
+  task:"Identify which projects are most likely to miss their go-live date, using schedule, dependency, incident and pipeline health signals together.",
+  format:"For each project: likelihood of missing go-live (Low / Medium / High), the 2 to 3 signals behind it, the action to take this week and who must take it. Then list any data that looks inconsistent or missing.",
+  out:"Ranked risks with reasons and next actions.",check:"Whether the signals are real; add context the data cannot show."},
+ {id:"impact",label:"Data delay note",sub:"Plain-language note for data consumers",needs:["projects","inc","health","flow"],
+  role:"You are an assistant to a project manager who writes short notes to people who use dashboards and reports, not to engineers.",
+  task:"Draft a note for the consumers of each pipeline that has an open P1 or P2 incident or a freshness problem. Explain in plain words what is affected, what they can safely rely on today, the workaround, and when the next update comes.",
+  format:"One note per affected pipeline, 6 lines maximum, no technical terms, no blame, no promised fix date unless one appears in the data. End with who to contact.",
+  out:"A short note per affected pipeline.",check:"Nothing is promised that the tech lead has not confirmed."},
+ {id:"notes",label:"Meeting notes to actions",sub:"Minutes, actions and RAID updates",needs:["raid"],notes:true,
+  role:"You are an assistant to a project manager who writes meeting minutes.",
+  task:"Turn the meeting notes below into structured minutes. Compare them with the existing RAID items to avoid duplicates.",
+  format:"1. Decisions (bullet list)\n2. Actions as a table: action, owner, due date\n3. New or changed RAID items as a table: type, description, owner, due date\n4. Follow-up email to attendees (5 lines maximum)\nIf an owner or a due date is not stated in the notes, write \"TBC\". Do not invent any.",
+  out:"Minutes, an action table and RAID updates.",check:"Owners and dates; anything marked TBC."},
+ {id:"pir",label:"Post-incident review",sub:"Blameless draft for P1 and P2",needs:["inc"],
+  role:"You are an assistant to a project manager who runs a blameless post-incident review with the tech lead on a data pipeline.",
+  task:"Draft the post-incident review for the P1 and P2 incidents listed below.",
+  format:"For each incident: summary, timeline, impact on data consumers, root cause (label it \"hypothesis\" unless confirmed), what went well, what to improve, and follow-up actions with an owner and a due date. Use blameless language: describe systems and decisions, not people. Write any technical remedy as a question for the tech lead.",
+  out:"A draft review to discuss with the team.",check:"Confirm the root cause with the tech lead before sharing."},
+ {id:"rice",label:"Backlog scoring check",sub:"Challenge the RICE scores",needs:["rice"],
+  role:"You are a product analyst supporting a backlog review with data consumers.",
+  task:"Review the RICE scoring below and challenge it.",
+  format:"1. Scores that look inflated or inconsistent, with reasons\n2. Questions to ask the data consumers (reach, impact) and the technical team (effort)\n3. Items whose ranking would change if confidence dropped by 20 points\nDo not change the effort estimates: they belong to the technical team.",
+  out:"A list of challenges and questions for the backlog review.",check:"Effort estimates stay with the technical team."}
+];
+let ucSel="status", aiScope="all";
+function ctxText(scope,needs){
+  const ks=scope==='all'?Object.keys(P):[scope]; const inS=x=>ks.includes(x.k);
+  const out=[];
+  if(needs.includes('projects')){
+    out.push('PROJECTS (reference week W39, 2026)\n'+port.filter(inS).map(p=>`- ${P[p.k].name} (${P[p.k].client}): status ${p.stL}; progress ${p.pct}%; go-live ${p.golive}; variance ${p.ecart}; budget ${p.budget}; next milestone: ${p.next}.`+(p.alert?` Alert: ${p.alert.txt}`:'')).join('\n'));
+  }
+  if(needs.includes('flow')){
+    out.push('DATA FLOW STAGES\n'+ks.map(k=>FLOW[k].map(s=>`- ${P[k].name} | ${s.n} | ${FST[s.st][0]} | ${s.note}`).join('\n')).join('\n'));
+  }
+  if(needs.includes('deps')){
+    out.push('SOURCE DEPENDENCIES\n'+AT.filter(inS).map(a=>`- ${P[a.k].name} | ${a.w} | requested ${a.dem} | needed by ${a.bes} | impact if late: ${a.imp} | status: ${a.stL}`).join('\n'));
+  }
+  if(needs.includes('blocked')){
+    const b=K.filter(x=>x.c==='client'&&inS(x));
+    out.push('BOARD ITEMS BLOCKED BY DATA OWNER\n'+(b.length?b.map(x=>`- ${P[x.k].name} | ${x.t} (${x.pts} pts)`).join('\n'):'- none'));
+  }
+  if(needs.includes('raid')){
+    out.push('RAID LOG\n'+RAID.filter(inS).map(x=>`- ${TYN[x.ty]} | ${P[x.k].name} | ${x.d} | criticality ${x.crit} | owner ${x.own} | due ${x.due}${x.late?' (overdue)':''} | status ${x.st}`).join('\n'));
+  }
+  if(needs.includes('inc')){
+    out.push('INCIDENTS\n'+INC.filter(x=>inS(x)&&x.sev<=2).map(x=>`- ${x.id} | ${P[x.k].name} | ${SEVL[x.sev]} | ${x.date} | ${x.t} | impact: ${x.imp} | status ${x.st} | restoration ${x.res} (target ${x.sla}) | review: ${x.pm}\n  Timeline: `+x.tl.map(t=>`${t[0]} ${t[1]}: ${t[2]}`).join('; ')).join('\n'));
+  }
+  if(needs.includes('health')){
+    const p=(v,d)=>v==null?'n/a':v.toFixed(d)+'%';
+    out.push('PIPELINE HEALTH (computed per pipeline from the run log; last 4 weeks, previous 4 weeks in brackets)\n'+ks.map(k=>{const {cur,prev}=healthFor(k);return `- ${P[k].name}: ${cur.n} runs, ${cur.nf} failed, ${cur.nl} late; freshness SLA hit rate ${p(cur.fresh,0)} (${p(prev.fresh,0)}); run success ${p(cur.succ,0)} (${p(prev.succ,0)}); quality test pass rate ${p(cur.dq,1)} (${p(prev.dq,1)}); median recovery ${fmtDur(cur.rec)} (${fmtDur(prev.rec)}); median duration ${fmtDur(cur.dur)}`;}).join('\n'));
+  }
+  if(needs.includes('rice')){
+    out.push('RICE BACKLOG (reach per quarter, impact 0.25-3, confidence %, effort in person-weeks)\n'+R.filter(inS).map(x=>`- ${P[x.k].name} | ${x.f} | R ${x.r} | I ${x.i} | C ${x.c}% | E ${x.e} | score ${Math.round(riceScore(x))}`).join('\n'));
+  }
+  return out.join('\n\n');
+}
+function buildPrompt(){
+  const u=UC.find(x=>x.id===ucSel);
+  let p=`ROLE\n${u.role}\n\nTASK\n${u.task}\n\nRULES\n${RULES}\n\nOUTPUT FORMAT\n${u.format}\n\nDATA\n${ctxText(aiScope,u.needs)}`;
+  if(u.notes) p+=`\n\nMEETING NOTES\n[Paste your raw notes here]`;
+  return p;
+}
+function renderAIPrompt(){
+  document.getElementById('promptOut').value=buildPrompt();
+  document.getElementById('copyMsg').textContent='';
+}
+function renderRadar(){
+  const rows=Object.keys(P).map(k=>{
+    let s=0;const f=[];
+    AT.filter(a=>a.k===k&&a.st==='ko').forEach(a=>{s+=3;f.push('Data owner deliverable late: '+a.w+' (+3)')});
+    AT.filter(a=>a.k===k&&a.st==='warn').forEach(a=>{s+=1;f.push('Deliverable partly received or unanswered: '+a.w+' (+1)')});
+    const bl=K.filter(x=>x.k===k&&x.c==='client');
+    if(bl.length){s+=bl.length;f.push(bl.length+' board item(s) blocked by data owner (+'+bl.length+')')}
+    const late=G.find(g=>g.k===k).rows.filter(r=>r[3]==='late');
+    late.forEach(r=>{s+=2;f.push('Slipping task: '+r[0]+' (+2)')});
+    INC.filter(x=>x.k===k&&x.sev<=2&&x.st==='In progress').forEach(x=>{s+=3;f.push('Open '+SEVL[x.sev].split(' ')[0]+' incident: '+x.id+' (+3)')});
+    RAID.filter(x=>x.k===k&&x.late).forEach(x=>{s+=2;f.push('Overdue issue: '+x.d+' (+2)')});
+    const fr=healthFor(k).cur.fresh;
+    if(fr!=null&&fr<90){s+=2;f.push('Freshness SLA hit rate '+fr.toFixed(0)+'% over the last 4 weeks (+2)')}
+    else if(fr!=null&&fr<98){s+=1;f.push('Freshness SLA hit rate '+fr.toFixed(0)+'% over the last 4 weeks (+1)')}
+    const lv=s>=8?['High','var(--ko)','s-ko']:s>=4?['Medium','var(--warn)','s-warn']:['Low','var(--ok)','s-ok'];
+    return {k,s,f,lv};
+  });
+  document.getElementById('radar').innerHTML=rows.map(r=>`<div class="row"><div>${tag(r.k)}<div style="margin-top:6px"><span class="status ${r.lv[2]}">${r.lv[0]} · ${r.s} pts</span></div></div>
+   <div><div class="rbar" aria-hidden="true"><i style="width:${Math.min(100,r.s/16*100)}%;background:${r.lv[1]}"></i></div>
+   ${r.f.length?`<ul>${r.f.map(t=>`<li>${t}</li>`).join('')}</ul>`:'<span style="font-size:.86rem;color:var(--ink-2)">No signal.</span>'}</div></div>`).join('');
+}
+function renderAI(){
+  const list=document.getElementById('ucList');
+  list.innerHTML=UC.map(u=>`<button class="uc" aria-pressed="${u.id===ucSel}" data-id="${u.id}">${u.label}<small>${u.sub}</small></button>`).join('');
+  list.querySelectorAll('.uc').forEach(b=>b.onclick=()=>{ucSel=b.dataset.id;renderAI()});
+  const u=UC.find(x=>x.id===ucSel);
+  document.getElementById('ucDesc').innerHTML=`<p><b>You get:</b> ${u.out}</p><p><b>Check before use:</b> ${u.check}</p>`;
+  chips(document.getElementById('aiScope'),aiScope,v=>{aiScope=v;renderAI()});
+  renderAIPrompt();
+  renderRadar();
+}
+document.getElementById('copyBtn').onclick=async()=>{
+  const ta=document.getElementById('promptOut'),m=document.getElementById('copyMsg');
+  try{await navigator.clipboard.writeText(ta.value);m.textContent='Copied to clipboard';}
+  catch(e){ta.focus();ta.select();try{document.execCommand('copy');m.textContent='Copied to clipboard';}catch(e2){m.textContent='Select the text and copy it manually';}}
+};
+renderAI();
+
+/* Restore last tab */
+try{const t=localStorage.getItem('df-tab'); if(t){const b=document.querySelector(`nav.tabs button[data-t="${t}"]`); b&&b.click();}}catch(e){}
+</script>
+</body>
+</html>
